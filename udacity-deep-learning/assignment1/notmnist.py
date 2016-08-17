@@ -251,8 +251,8 @@ if not os.path.exists(pickle_file):
 
     indices = np.arange(train_dataset.shape[0])
     np.random.shuffle(indices)
-    dataset = train_dataset[indices]
-    labels = train_labels[indices]
+    train_dataset = train_dataset[indices]
+    train_labels = train_labels[indices]
 
     try:
       f = open(pickle_file, 'wb')
