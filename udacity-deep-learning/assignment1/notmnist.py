@@ -16,7 +16,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from urllib.request import urlretrieve
 import pickle
 import IPython
-import matplotlib.pyplot as plt
 
 # Config the matlotlib backend as plotting inline in IPython
 # %matplotlib inline
@@ -250,6 +249,11 @@ if not os.path.exists(pickle_file):
         train_datasets, train_size, valid_size)
     _, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
 
+    indices = np.arange(train_dataset.shape[0])
+    np.random.shuffle(indices)
+    dataset = train_dataset[indices]
+    labels = train_labels[indices]
+
     try:
       f = open(pickle_file, 'wb')
       save = {
@@ -338,14 +342,11 @@ def train_model(dataset, labels, size=None):
     maxSize = dataset.shape[0]
     if size is None:
         size = maxSize
+    elif size > maxSize:
+        size = maxSize
     else:
-        if size > maxSize:
-            size = maxSize
-        indices = np.arange(maxSize)
-        np.random.shuffle(indices)
-        indices = indices[0:size]
-        dataset = dataset[indices]
-        labels = labels[indices]
+        dataset = dataset[0:size]
+        labels = labels[0:size]
     X = np.reshape(dataset, (size,-1))
     y = labels
     lr = LogisticRegression(n_jobs=4)
