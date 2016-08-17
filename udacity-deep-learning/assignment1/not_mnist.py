@@ -12,6 +12,7 @@ import tarfile
 from IPython.display import display, Image
 from scipy import ndimage
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics.pairwise import cosine_similarity
 from urllib.request import urlretrieve
 import pickle
 import IPython
@@ -156,19 +157,19 @@ def load_dataset(filename):
 
 
 # Display a random matrix with a specified figure number and a grayscale colormap
-largeNameA = train_datasets[0]
-print(largeNameA)
-largeDataA = load_dataset(largeNameA)
-img1 = largeDataA[0, :, :]
-plt.matshow(img1, cmap=plt.cm.gray)
-plt.show()
-
-smallNameJ = test_datasets[9]
-print(smallNameJ)
-smallDataJ = load_dataset(smallNameJ)
-img2 = smallDataJ[0, :, :]
-plt.matshow(img2, cmap=plt.cm.gray)
-plt.show()
+# largeNameA = train_datasets[0]
+# print(largeNameA)
+# largeDataA = load_dataset(largeNameA)
+# img1 = largeDataA[0, :, :]
+# plt.matshow(img1, cmap=plt.cm.gray)
+# plt.show()
+#
+# smallNameJ = test_datasets[9]
+# print(smallNameJ)
+# smallDataJ = load_dataset(smallNameJ)
+# img2 = smallDataJ[0, :, :]
+# plt.matshow(img2, cmap=plt.cm.gray)
+# plt.show()
 
 
 # Check whether the data is balanced between classes
@@ -179,3 +180,112 @@ for name in train_datasets:
 for name in test_datasets:
     dataset = load_dataset(name)
     print(name, ' size:', dataset.shape)
+
+
+def make_arrays(nb_rows, img_size):
+    if nb_rows:
+        dataset = np.ndarray((nb_rows, img_size, img_size), dtype=np.float32)
+        labels = np.ndarray(nb_rows, dtype=np.int32)
+    else:
+        dataset, labels = None, None
+    return dataset, labels
+
+
+def merge_datasets(pickle_files, train_size, valid_size=0):
+    num_classes = len(pickle_files)
+    valid_dataset, valid_labels = make_arrays(valid_size, image_size)
+    train_dataset, train_labels = make_arrays(train_size, image_size)
+    vsize_per_class = valid_size // num_classes
+    tsize_per_class = train_size // num_classes
+
+    start_v, start_t = 0, 0
+    end_v, end_t = vsize_per_class, tsize_per_class
+    end_l = vsize_per_class + tsize_per_class
+    for label, pickle_file in enumerate(pickle_files):
+        try:
+            with open(pickle_file, 'rb') as f:
+                letter_set = pickle.load(f)
+                # let's shuffle the letters to have random validation and training set
+                np.random.shuffle(letter_set)
+                if valid_dataset is not None:
+                    valid_letter = letter_set[:vsize_per_class, :, :]
+                    valid_dataset[start_v:end_v, :, :] = valid_letter
+                    valid_labels[start_v:end_v] = label
+                    start_v += vsize_per_class
+                    end_v += vsize_per_class
+
+                train_letter = letter_set[vsize_per_class:end_l, :, :]
+                train_dataset[start_t:end_t, :, :] = train_letter
+                train_labels[start_t:end_t] = label
+                start_t += tsize_per_class
+                end_t += tsize_per_class
+        except Exception as e:
+            print('Unable to process data from', pickle_file, ':', e)
+            raise
+
+    return valid_dataset, valid_labels, train_dataset, train_labels
+
+
+train_size = 200000
+valid_size = 10000
+test_size = 10000
+
+valid_dataset, valid_labels, train_dataset, train_labels = merge_datasets(
+    train_datasets, train_size, valid_size)
+_, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
+
+print('Training:', train_dataset.shape, train_labels.shape)
+print('Validation:', valid_dataset.shape, valid_labels.shape)
+print('Testing:', test_dataset.shape, test_labels.shape)
+
+
+# def show_images(dataset, labels, count):
+#     for i in range(0,count):
+#         print(labels[i])
+#         plt.matshow(dataset[i,:,:], cmap=plt.cm.gray)
+#     plt.show()
+
+
+# show_images(train_dataset, train_labels, 3)
+# show_images(test_dataset, test_labels, 3)
+# show_images(valid_dataset, valid_labels, 3)
+
+
+pickle_file = 'notMNIST.pickle'
+
+try:
+  f = open(pickle_file, 'wb')
+  save = {
+    'train_dataset': train_dataset,
+    'train_labels': train_labels,
+    'valid_dataset': valid_dataset,
+    'valid_labels': valid_labels,
+    'test_dataset': test_dataset,
+    'test_labels': test_labels,
+    }
+  pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
+  f.close()
+except Exception as e:
+  print('Unable to save data to', pickle_file, ':', e)
+  raise
+
+
+statinfo = os.stat(pickle_file)
+print('Compressed pickle size:', statinfo.st_size)
+
+
+def calc_similarity(X, Y, similarity_epsilon):
+    similarity = cosine_similarity(np.reshape(X, (X.shape[0],-1)), np.reshape(Y, (Y.shape[0],-1)))
+    same_count = np.sum(similarity==0)
+    similar_count = np.sum(similarity<similarity_epsilon)
+    return same_count, similar_count
+
+
+train_valid_same, train_valid_similar = calc_similarity(train_dataset, valid_dataset, 0.01)
+print("training-validation: same=", train_valid_same, "similar=", train_valid_similar)
+train_test_same, train_test_similar = calc_similarity(train_dataset, test_dataset, 0.01)
+print("training-test: same=", train_test_same, "similar=", train_test_similar)
+valid_test_same, valid_test_similar = calc_similarity(valid_dataset, test_dataset, 0.01)
+print("validation-test: same=", valid_test_same, "similar=", valid_test_similar)
+
+
