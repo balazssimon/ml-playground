@@ -173,13 +173,13 @@ def load_dataset(filename):
 
 
 # Check whether the data is balanced between classes
-for name in train_datasets:
-    dataset = load_dataset(name)
-    print(name, ' size:', dataset.shape)
-
-for name in test_datasets:
-    dataset = load_dataset(name)
-    print(name, ' size:', dataset.shape)
+# for name in train_datasets:
+#     dataset = load_dataset(name)
+#     print(name, ' size:', dataset.shape)
+#
+# for name in test_datasets:
+#     dataset = load_dataset(name)
+#     print(name, ' size:', dataset.shape)
 
 
 def make_arrays(nb_rows, img_size):
@@ -226,18 +226,6 @@ def merge_datasets(pickle_files, train_size, valid_size=0):
     return valid_dataset, valid_labels, train_dataset, train_labels
 
 
-train_size = 200000
-valid_size = 10000
-test_size = 10000
-
-valid_dataset, valid_labels, train_dataset, train_labels = merge_datasets(
-    train_datasets, train_size, valid_size)
-_, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
-
-print('Training:', train_dataset.shape, train_labels.shape)
-print('Validation:', valid_dataset.shape, valid_labels.shape)
-print('Testing:', test_dataset.shape, test_labels.shape)
-
 
 # def show_images(dataset, labels, count):
 #     for i in range(0,count):
@@ -253,39 +241,137 @@ print('Testing:', test_dataset.shape, test_labels.shape)
 
 pickle_file = 'notMNIST.pickle'
 
-try:
-  f = open(pickle_file, 'wb')
-  save = {
-    'train_dataset': train_dataset,
-    'train_labels': train_labels,
-    'valid_dataset': valid_dataset,
-    'valid_labels': valid_labels,
-    'test_dataset': test_dataset,
-    'test_labels': test_labels,
-    }
-  pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
-  f.close()
-except Exception as e:
-  print('Unable to save data to', pickle_file, ':', e)
-  raise
+if not os.path.exists(pickle_file):
+    train_size = 200000
+    valid_size = 10000
+    test_size = 10000
+
+    valid_dataset, valid_labels, train_dataset, train_labels = merge_datasets(
+        train_datasets, train_size, valid_size)
+    _, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
+
+    try:
+      f = open(pickle_file, 'wb')
+      save = {
+        'train_dataset': train_dataset,
+        'train_labels': train_labels,
+        'valid_dataset': valid_dataset,
+        'valid_labels': valid_labels,
+        'test_dataset': test_dataset,
+        'test_labels': test_labels,
+        }
+      pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
+      f.close()
+    except Exception as e:
+      print('Unable to save data to', pickle_file, ':', e)
+      raise
+
+def load_datasets(pickle_file):
+    statinfo = os.stat(pickle_file)
+    print('Compressed pickle size:', statinfo.st_size)
+
+    f = open(pickle_file, 'rb')
+    save = pickle.load(f)
+    f.close()
+    train_dataset = save['train_dataset']
+    train_labels = save['train_labels']
+    valid_dataset = save['valid_dataset']
+    valid_labels = save['valid_labels']
+    test_dataset = save['test_dataset']
+    test_labels = save['test_labels']
+    return train_dataset, train_labels, valid_dataset, valid_labels, test_dataset, test_labels
 
 
-statinfo = os.stat(pickle_file)
-print('Compressed pickle size:', statinfo.st_size)
+train_dataset, train_labels, valid_dataset, valid_labels, test_dataset, test_labels = load_datasets(pickle_file)
+print('Training:', train_dataset.shape, train_labels.shape)
+print('Validation:', valid_dataset.shape, valid_labels.shape)
+print('Testing:', test_dataset.shape, test_labels.shape)
 
 
-def calc_similarity(X, Y, similarity_epsilon):
-    similarity = cosine_similarity(np.reshape(X, (X.shape[0],-1)), np.reshape(Y, (Y.shape[0],-1)))
-    same_count = np.sum(similarity==0)
-    similar_count = np.sum(similarity<similarity_epsilon)
-    return same_count, similar_count
+def sanitize_dataset(dataset, labels, filter_dataset, similarity_epsilon):
+    similarity = cosine_similarity(np.reshape(dataset, (dataset.shape[0],-1)), np.reshape(filter_dataset, (filter_dataset.shape[0],-1)))
+    same_filter = np.sum(similarity == 1, axis=1) > 0
+    similar_filter = np.sum(similarity > 1-similarity_epsilon, axis=1) > 0
+    same_count = np.sum(same_filter)
+    similar_count = np.sum(similar_filter)
+    filtered_dataset = dataset[same_filter==False]
+    filtered_labels = labels[same_filter==False]
+    return filtered_dataset, filtered_labels, same_count, similar_count
+
+sanit_pickle_file = 'notMNIST_sanit.pickle'
+
+if not os.path.exists(sanit_pickle_file):
+    filtered_valid_dataset, filtered_valid_labels, train_valid_same, train_valid_similar = \
+        sanitize_dataset(valid_dataset, valid_labels, train_dataset, 0.001)
+    print("training-validation: same=", train_valid_same, "similar=", train_valid_similar)
+    filtered_test_dataset, filtered_test_labels, train_test_same, train_test_similar = \
+        sanitize_dataset(test_dataset, test_labels, train_dataset, 0.001)
+    print("training-testing: same=", train_test_same, "similar=", train_test_similar)
+    filtered_test_dataset, filtered_test_labels, valid_test_same, valid_test_similar = \
+        sanitize_dataset(filtered_test_dataset, filtered_test_labels, filtered_valid_dataset, 0.001)
+    print("validation-testing: same=", valid_test_same, "similar=", valid_test_similar)
+
+    try:
+      f = open(sanit_pickle_file, 'wb')
+      save = {
+        'train_dataset': train_dataset,
+        'train_labels': train_labels,
+        'valid_dataset': filtered_valid_dataset,
+        'valid_labels': filtered_valid_labels,
+        'test_dataset': filtered_test_dataset,
+        'test_labels': filtered_test_labels,
+        }
+      pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
+      f.close()
+    except Exception as e:
+      print('Unable to save data to', pickle_file, ':', e)
+      raise
 
 
-train_valid_same, train_valid_similar = calc_similarity(train_dataset, valid_dataset, 0.01)
-print("training-validation: same=", train_valid_same, "similar=", train_valid_similar)
-train_test_same, train_test_similar = calc_similarity(train_dataset, test_dataset, 0.01)
-print("training-test: same=", train_test_same, "similar=", train_test_similar)
-valid_test_same, valid_test_similar = calc_similarity(valid_dataset, test_dataset, 0.01)
-print("validation-test: same=", valid_test_same, "similar=", valid_test_similar)
+train_dataset, train_labels, filtered_valid_dataset, filtered_valid_labels, filtered_test_dataset, filtered_test_labels = load_datasets(sanit_pickle_file)
+print('Training (sanitized):', train_dataset.shape, train_labels.shape)
+print('Validation (sanitized):', filtered_valid_dataset.shape, filtered_valid_labels.shape)
+print('Testing (sanitized):', filtered_test_dataset.shape, filtered_test_labels.shape)
 
 
+def train_model(dataset, labels, size=None):
+    maxSize = dataset.shape[0]
+    if size is None:
+        size = maxSize
+    else:
+        if size > maxSize:
+            size = maxSize
+        indices = np.arange(maxSize)
+        np.random.shuffle(indices)
+        indices = indices[0:size]
+        dataset = dataset[indices]
+        labels = labels[indices]
+    X = np.reshape(dataset, (size,-1))
+    y = labels
+    lr = LogisticRegression(n_jobs=4)
+    lr.fit(X, y)
+    return lr
+
+
+def model_score(model, dataset, labels):
+    X = np.reshape(dataset, (dataset.shape[0],-1))
+    y = labels
+    return model.score(X, y)
+
+
+def train(size=None):
+    if size is None:
+        print("Training with all examples:")
+    else:
+        print("Training with ", size, " examples:")
+    model = train_model(train_dataset, train_labels, size)
+    print("  validation score: ", model_score(model, valid_dataset, valid_labels))
+    print("  test score: ", model_score(model, test_dataset, test_labels))
+    print("  validation score (sanitized): ", model_score(model, filtered_valid_dataset, filtered_valid_labels))
+    print("  test score (sanitized): ", model_score(model, filtered_test_dataset, filtered_test_labels))
+
+for size in [50, 100, 1000, 5000]:
+    train(size)
+
+# training on all examples:
+#train()
