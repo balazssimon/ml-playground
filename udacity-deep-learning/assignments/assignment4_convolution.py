@@ -31,7 +31,7 @@ print('Training set', train_dataset.shape, train_labels.shape)
 print('Validation set', valid_dataset.shape, valid_labels.shape)
 print('Test set', test_dataset.shape, test_labels.shape)
 
-num_steps = 3001
+num_steps = 10001
 report_steps = 50
 batch_size = 16
 patch_size = 5
@@ -42,7 +42,7 @@ num_hidden = 64
 dropout = True
 starter_learning_rate = 0.05
 decay_steps = num_steps
-decay_rate = 0.96
+decay_rate = 0.1
 learning_rate_decay = True
 
 graph = tf.Graph()
