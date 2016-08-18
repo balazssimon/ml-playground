@@ -1,43 +1,17 @@
-import numpy as np
-import pickle
 import tensorflow as tf
-
-def load_datasets(pickle_file):
-    with open(pickle_file, 'rb') as f:
-        save = pickle.load(f)
-        f.close()
-        train_dataset = save['train_dataset']
-        train_labels = save['train_labels']
-        valid_dataset = save['valid_dataset']
-        valid_labels = save['valid_labels']
-        test_dataset = save['test_dataset']
-        test_labels = save['test_labels']
-        del save  # hint to help gc free up memory
-        return train_dataset, train_labels, valid_dataset, valid_labels, test_dataset, test_labels
+from notmnist_common import load_prepared_dataset
+from notmnist_common import accuracy
 
 
 pickle_file = 'notMNIST.pickle'
-train_dataset, train_labels, valid_dataset, valid_labels, test_dataset, test_labels = load_datasets(pickle_file)
-
-print('Training set', train_dataset.shape, train_labels.shape)
-print('Validation set', valid_dataset.shape, valid_labels.shape)
-print('Test set', test_dataset.shape, test_labels.shape)
-
 image_size = 28
 num_labels = 10
+train_dataset, train_labels, valid_dataset, valid_labels, test_dataset, test_labels = load_prepared_dataset(pickle_file, image_size, num_labels)
 
-def reformat(dataset, labels):
-    dataset = dataset.reshape((-1, image_size * image_size)).astype(np.float32)
-    # Map 0 to [1.0, 0.0, 0.0 ...], 1 to [0.0, 1.0, 0.0 ...]
-    labels = (np.arange(num_labels) == labels[:,None]).astype(np.float32)
-    return dataset, labels
-
-train_dataset, train_labels = reformat(train_dataset, train_labels)
-valid_dataset, valid_labels = reformat(valid_dataset, valid_labels)
-test_dataset, test_labels = reformat(test_dataset, test_labels)
 print('Training set', train_dataset.shape, train_labels.shape)
 print('Validation set', valid_dataset.shape, valid_labels.shape)
 print('Test set', test_dataset.shape, test_labels.shape)
+
 
 # With gradient descent training, even this much data is prohibitive.
 # Subset the training data for faster turnaround.
@@ -81,10 +55,6 @@ with graph.as_default():
 
 
 num_steps = 801
-
-
-def accuracy(predictions, labels):
-    return (100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1)) / predictions.shape[0])
 
 
 with tf.Session(graph=graph) as session:
