@@ -73,7 +73,7 @@ class RBM():
         # v_k: visible node after k iterations (samplings)
         # P(nh==1|v_0): probability that the hidden nodes are activated given the visible nodes have value v_0
         # P(nh==1|v_k): probability that the hidden nodes are activated given the visible nodes have value v_k
-        self.W += torch.mm(v0.t(), ph0) - torch.mm(vk.t(), phk) # v_0^T * P(nh==1|v_0) - v_k^T * P(nh==1|v_k)
+        self.W += (torch.mm(v0.t(), ph0) - torch.mm(vk.t(), phk)).t() # v_0^T * P(nh==1|v_0) - v_k^T * P(nh==1|v_k)
         self.b += torch.sum((v0 - vk), 0) # sum: v_0 - v_k
         self.a += torch.sum((ph0 - phk), 0) # sum: P(nh==1|v_0) - P(nh==1|v_k) 
 nv = len(training_set[0])
