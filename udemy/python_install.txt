@@ -1,0 +1,33 @@
+pip install numpy scipy pandas matplotlib scikit-learn
+pip install --upgrade tensorflow==1.5.0
+pip install keras
+pip install https://cntk.ai/PythonWheel/CPU-Only/cntk-2.5.1-cp36-cp36m-win_amd64.whl
+pip install http://download.pytorch.org/whl/cpu/torch-0.4.1-cp36-cp36m-win_amd64.whl
+pip install torchvision
+pip install nltk
+pip install ipython
+
+install MinGW
+
+create a file called .theanorc in the Windows user directory with the following content:
+[gcc]
+cxxflags = -D_hypot=hypot
+
+pip install theano
+
+pip install gym
+
+Download atari_py-0.1.1-cp36-cp36m-win_amd64.whl from https://github.com/Kojoley/atari-py/releases
+pip install ...\atari_py-0.1.1-cp36-cp36m-win_amd64.whl
+
+install ffmpeg (extract it to a directory and add the bin folder to the PATH)
+
+pip install ffmpeg-python
+
+
+FAQ
+---
+
+* if moduleTNC cannot be imported:
+pip uninstall scipy scikit-learn
+pip install scipy scikit-learn
